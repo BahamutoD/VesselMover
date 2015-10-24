@@ -9,6 +9,7 @@
 //------------------------------------------------------------------------------
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace VesselMover
@@ -16,38 +17,79 @@ namespace VesselMover
 	[KSPAddon(KSPAddon.Startup.Flight, false)]
 	public class VesselMove : MonoBehaviour
 	{
+		public enum MoveModes{Normal = 0, Slow = 1, Ludicrous = 2}
+		MoveModes moveMode = MoveModes.Normal;
 
 		bool moving = false;
-		bool placing = false;
+		List<Vessel> placingVessels = new List<Vessel>();
+		//float hOffset = 0;
 		float moveHeight = 0;
-		const float hoverHeight = 25;
 
-		float moveSpeed = 30;
-		float moveAccel = 10;
+
+		float[] hoverHeights = new float[]{35, 15, 3000};
+		float hoverHeight
+		{
+			get
+			{
+				return hoverHeights[(int)moveMode];
+			}
+		}
+
+		float[] moveSpeeds = new float[]{10, 0.5f, 1500};
+		float moveSpeed
+		{
+			get
+			{
+				return moveSpeeds[(int)moveMode];
+			}
+		}
+
+		float[] moveAccels = new float[]{10, 1, 750};
+		float moveAccel
+		{
+			get
+			{
+				return moveAccels[(int)moveMode];
+			}
+		}
+
+		float[] rotationSpeeds = new float[]{50, 20, 50};
+		float rotationSpeed
+		{
+			get
+			{
+				return rotationSpeeds[(int)moveMode] * Time.fixedDeltaTime;
+			}
+		}
 
 		Vessel movingVessel;
 		Quaternion startRotation;
+		Quaternion currRotation;
 
 		float currMoveSpeed = 0;
 		Vector3 currMoveVelocity;
 
-		Bounds vesselBounds;
+
+		VesselBounds vBounds;
 
 		LineRenderer debugLr;
 
-		Collider[] colliders;
 	
 		Vector3 up;
+		Vector3 startingUp;
 
-		float maxPlacementSpeed = 50;
+		float maxPlacementSpeed = 1050;
+
+		bool hasRotated = false;
+		float timeBoundsUpdated = 0;
 
 
 		void Start()
 		{
 			debugLr = new GameObject().AddComponent<LineRenderer>();
 			debugLr.material = new Material(Shader.Find("KSP/Emissive/Diffuse"));
-			debugLr.material.SetColor("_EmissiveColor", Color.red);
-			debugLr.SetWidth(0.25f, 0.25f);
+			debugLr.material.SetColor("_EmissiveColor", Color.green);
+			debugLr.SetWidth(0.15f, 0.15f);
 			debugLr.enabled = false;
 		}
 
@@ -65,6 +107,14 @@ namespace VesselMover
 				}
 			}
 
+			if(moving)
+			{
+				if(Input.GetKeyDown(KeyCode.Tab))
+				{
+					ToggleMoveMode();
+				}
+			}
+
 
 		}
 
@@ -73,10 +123,20 @@ namespace VesselMover
 			if(moving)
 			{
 				UpdateMove();
+
+				if(hasRotated && Time.time-timeBoundsUpdated > 0.2f)
+				{
+					UpdateBounds();
+				}
 			}
 		}
 
-
+		void UpdateBounds()
+		{
+			hasRotated = false;
+			vBounds.UpdateBounds();
+			timeBoundsUpdated = Time.time;
+		}
 
 		void UpdateMove()
 		{
@@ -86,49 +146,85 @@ namespace VesselMover
 				return;
 			}
 
+			moveHeight = Mathf.Lerp(moveHeight, vBounds.bottomLength + hoverHeight, 10*Time.fixedDeltaTime);
+
+			movingVessel.ActionGroups.SetGroup(KSPActionGroup.RCS, false);
 
 			up = (movingVessel.transform.position-FlightGlobals.currentMainBody.transform.position).normalized;
 
-			Vector3 forward = Vector3.ProjectOnPlane(movingVessel.CoM-FlightCamera.fetch.mainCamera.transform.position, up).normalized; 
+			Vector3 forward;
+			if(MapView.MapIsEnabled)
+			{
+				forward = North();
+			}
+			else
+			{
+				forward = Vector3.ProjectOnPlane(movingVessel.CoM-FlightCamera.fetch.mainCamera.transform.position, up).normalized; 
+			}
+
 			Vector3 right = Vector3.Cross(up, forward);
 
 			Vector3 offsetDirection = Vector3.zero;
 			bool inputting = false;
 
-			if(Input.GetKey(KeyCode.W))
+			if(GameSettings.PITCH_DOWN.GetKey())
 			{
 				offsetDirection += (forward * moveSpeed * Time.fixedDeltaTime);
 				inputting = true;
 			}
-			if(Input.GetKey(KeyCode.S))
+			if(GameSettings.PITCH_UP.GetKey())
 			{
 				offsetDirection += (-forward * moveSpeed * Time.fixedDeltaTime);
 				inputting = true;
 			}
 
-			if(Input.GetKey(KeyCode.D))
+			if(GameSettings.YAW_RIGHT.GetKey())
 			{
 				offsetDirection += (right * moveSpeed * Time.fixedDeltaTime);
 				inputting = true;
 			}
-			else if(Input.GetKey(KeyCode.A))
+			if(GameSettings.YAW_LEFT.GetKey())
 			{
 				offsetDirection += (-right * moveSpeed * Time.fixedDeltaTime);
 				inputting = true;
 			}
 
-			if(Input.GetKey(KeyCode.E))
+			if(GameSettings.TRANSLATE_RIGHT.GetKey())
 			{
-				startRotation = Quaternion.AngleAxis(45*Time.fixedDeltaTime, up) * startRotation;
+				startRotation = Quaternion.AngleAxis(-rotationSpeed, movingVessel.ReferenceTransform.forward) * startRotation;
+				hasRotated = true;
 			}
-			else if(Input.GetKey(KeyCode.Q))
+			else if(GameSettings.TRANSLATE_LEFT.GetKey())
 			{
-				startRotation = Quaternion.AngleAxis(-45*Time.fixedDeltaTime, up) * startRotation;
+				startRotation = Quaternion.AngleAxis(rotationSpeed, movingVessel.ReferenceTransform.forward) * startRotation;
+				hasRotated = true;
+			}
+
+			if(GameSettings.TRANSLATE_DOWN.GetKey())
+			{
+				startRotation = Quaternion.AngleAxis(rotationSpeed, movingVessel.ReferenceTransform.right) * startRotation;
+				hasRotated = true;
+			}
+			else if(GameSettings.TRANSLATE_UP.GetKey())
+			{
+				startRotation = Quaternion.AngleAxis(-rotationSpeed, movingVessel.ReferenceTransform.right) * startRotation;
+				hasRotated = true;
+			}
+
+			if(GameSettings.ROLL_LEFT.GetKey())
+			{
+				startRotation = Quaternion.AngleAxis(rotationSpeed, movingVessel.ReferenceTransform.up) * startRotation;
+				hasRotated = true;
+			}
+			else if(GameSettings.ROLL_RIGHT.GetKey())
+			{
+				startRotation = Quaternion.AngleAxis(-rotationSpeed, movingVessel.ReferenceTransform.up) * startRotation;
+				hasRotated = true;
 			}
 
 			if(inputting)
 			{
-				currMoveSpeed = Mathf.MoveTowards(currMoveSpeed, moveSpeed, moveAccel*Time.fixedDeltaTime);
+				currMoveSpeed = Mathf.Clamp(Mathf.MoveTowards(currMoveSpeed, moveSpeed, moveAccel*Time.fixedDeltaTime), 0, moveSpeed);
 			}
 			else
 			{
@@ -139,7 +235,7 @@ namespace VesselMover
 
 			currMoveVelocity = offset/Time.fixedDeltaTime;
 
-			Vector3 vSrfPt = movingVessel.transform.position - (moveHeight*up);
+			Vector3 vSrfPt = movingVessel.CoM - (moveHeight*up);
 			bool srfBelowWater = false;
 			RaycastHit ringHit;
 			//bool surfaceDetected = RingCast(out ringHit, 8);
@@ -152,30 +248,32 @@ namespace VesselMover
 				}
 
 				Vector3 rOffset = Vector3.Project(ringHit.point-vSrfPt, up);
-				Vector3 mOffset = (vSrfPt + offset)-movingVessel.transform.position;
+				Vector3 mOffset = (vSrfPt + offset)-movingVessel.CoM;
 				Vector3 finalOffset = rOffset + mOffset + (moveHeight*up);
 				movingVessel.Translate(finalOffset);
 
 
 			}
 
-			Vector3d geoCoords = WorldPositionToGeoCoords(movingVessel.GetWorldPos3D(), movingVessel.mainBody);
+			Vector3d geoCoords = WorldPositionToGeoCoords(movingVessel.GetWorldPos3D()+(currMoveVelocity*Time.fixedDeltaTime), movingVessel.mainBody);
 			PQS bodyPQS = movingVessel.mainBody.pqsController;
 			double Lat = geoCoords.x;
 			double Lng = geoCoords.y;
 			var bodyUpVector = new Vector3d(1,0,0);
 			bodyUpVector = QuaternionD.AngleAxis(Lat, Vector3d.forward/*around Z axis*/) * bodyUpVector;
 			bodyUpVector = QuaternionD.AngleAxis(Lng, Vector3d.down/*around -Y axis*/) * bodyUpVector;
-			double srfHeight = bodyPQS.GetSurfaceHeight( bodyUpVector );
+			double srfHeight = bodyPQS.GetSurfaceHeight(bodyUpVector);
 			double alt = srfHeight - bodyPQS.radius;
 		
 			if(!surfaceDetected || srfBelowWater)
 			{
-				Debug.Log ("Surface height: "+movingVessel.mainBody.pqsController.GetSurfaceHeight(up));
+				//Debug.Log ("Surface height: "+movingVessel.mainBody.pqsController.GetSurfaceHeight(up));
 				Vector3 terrainPos = movingVessel.mainBody.position + (float)srfHeight*up;
 				if(alt > 0)
 				{
 					movingVessel.SetPosition(terrainPos + (moveHeight*up) + offset);
+
+					//currMoveSpeed/=2; //this would slow you down in order to let terrain load, however, hovering high enough makes it so terrain doesnt matter
 				}
 				else
 				{
@@ -184,20 +282,36 @@ namespace VesselMover
 				}
 			}
 
+			//fix surface rotation
+			Quaternion srfRotFix = Quaternion.FromToRotation(startingUp, up);
+			currRotation = srfRotFix * startRotation;
+			movingVessel.SetRotation(currRotation);
+			if(Vector3.Angle (startingUp, up) > 5)
+			{
+				startRotation = currRotation;
+				startingUp = up;
+			}
 
 			movingVessel.SetWorldVelocity(Vector3d.zero);
-			movingVessel.SetRotation(startRotation);
 			movingVessel.angularVelocity = Vector3.zero;
 			movingVessel.angularMomentum = Vector3.zero;
 
-			UpdateDebugLines();
+
+		}
+
+		void LateUpdate()
+		{
+			if(moving)
+			{
+				UpdateDebugLines();
+			}
 		}
 
 		Vector3d WorldPositionToGeoCoords(Vector3d worldPosition, CelestialBody body)
 		{
 			if(!body)
 			{
-				//Debug.Log ("BahaTurret.VectorUtils.WorldPositionToGeoCoords body is null");
+				Debug.LogWarning ("WorldPositionToGeoCoords body is null");
 				return Vector3d.zero;
 			}
 			
@@ -209,95 +323,93 @@ namespace VesselMover
 
 		void StartMove()
 		{
-			if(!placing && FlightGlobals.ActiveVessel.LandedOrSplashed)
+			if(!placingVessels.Contains(FlightGlobals.ActiveVessel) && FlightGlobals.ActiveVessel.LandedOrSplashed)
 			{
-				Vessel vessel = FlightGlobals.ActiveVessel;
-				up = (vessel.transform.position-FlightGlobals.currentMainBody.transform.position).normalized;
+				ShowModeMessage();
 
-				//create bounds
-				vesselBounds = new Bounds(vessel.CoM, Vector3.zero);
-				colliders = vessel.GetComponentsInChildren<Collider>();
-				for(int i = 0; i < colliders.Length; i++)
-				{
-					vesselBounds.Encapsulate(colliders[i].bounds);
-				}
+				movingVessel = FlightGlobals.ActiveVessel;
+				up = (movingVessel.transform.position-FlightGlobals.currentMainBody.transform.position).normalized;
+				startingUp = up;
 
-				vesselBounds.size *= 2f;
-
-				if(vessel.Splashed)
-				{
-					float radius = Mathf.Max (Mathf.Max(vesselBounds.size.x, vesselBounds.size.y), vesselBounds.size.z);
-					moving = true;
-					moveHeight = hoverHeight + radius;
-					vessel.Translate(hoverHeight * up);
-					movingVessel = vessel;
-					startRotation = vessel.transform.rotation;
-					debugLr.enabled = true;
-				}
-				else
-				{
-					RaycastHit rayHit;
-					if(Physics.Raycast(vessel.transform.position, -up, out rayHit, 200, 1<<15))
-					{
-						moving = true;
-						//Time.timeScale = 0;
-
-						moveHeight = hoverHeight + rayHit.distance;
-
-						vessel.Translate(hoverHeight*up);
-
-						movingVessel = vessel;
-
-						startRotation = vessel.transform.rotation;
-
-						debugLr.enabled = true;
-					}
-					else
-					{
-						Debug.LogWarning("VesselMover failed - raycast could not find ground.");
-					}
-				}
+				vBounds = new VesselBounds(movingVessel);
+				moving = true;
+				moveHeight = vBounds.bottomLength+0.5f;
+				
+				
+				startRotation = movingVessel.transform.rotation;
+				currRotation = startRotation;
+				
+				debugLr.enabled = true;
 			}
 		}
 
+
+
 		void EndMove()
 		{
-			StartCoroutine(EndMoveRoutine());
+			StartCoroutine(EndMoveRoutine(vBounds));
 
 			debugLr.enabled = false;
 		}
 
-		IEnumerator EndMoveRoutine()
+		IEnumerator EndMoveRoutine(VesselBounds vesselBounds)
 		{
-			moving = false;
-			placing = true;
+			Vessel v = vesselBounds.vessel;
+			if(!v) yield break;
 
-			float heightOffset = GetRadarAltitude(movingVessel) - moveHeight;
+			yield return new WaitForFixedUpdate();
+			vesselBounds.UpdateBounds();
 
-			while(movingVessel && !movingVessel.LandedOrSplashed)
+			yield return new WaitForFixedUpdate();
+
+			while(moveMode != MoveModes.Normal)
 			{
-				up = (movingVessel.transform.position-FlightGlobals.currentMainBody.transform.position).normalized;
-				movingVessel.SetWorldVelocity(Mathf.Clamp(((GetRadarAltitude(movingVessel)-heightOffset)*2)-5,1,maxPlacementSpeed) * -up);
+				ToggleMoveMode();
+			}
+
+			moving = false;
+			moveHeight = 0;
+			placingVessels.Add(vesselBounds.vessel);
+			float bottomLength = vBounds.bottomLength;
+
+			//float heightOffset = GetRadarAltitude(movingVessel) - moveHeight;
+
+			while(v && !v.LandedOrSplashed)
+			{
+				up = (v.transform.position-FlightGlobals.currentMainBody.transform.position).normalized;
+				float placeSpeed = Mathf.Clamp(((GetRaycastAltitude(vesselBounds)-bottomLength)*2), 0.1f, maxPlacementSpeed);
+				if(placeSpeed > 3)
+				{
+					v.SetWorldVelocity(Vector3.zero);
+					movingVessel.angularVelocity = Vector3.zero;
+					movingVessel.angularMomentum = Vector3.zero;
+					v.Translate(placeSpeed*Time.fixedDeltaTime * -up);
+				}
+				else
+				{
+					v.SetWorldVelocity(placeSpeed * -up);
+				}
 				yield return new WaitForFixedUpdate();
 			}
 
-			placing = false;
+			placingVessels.Remove(v);
 		}
 
 		void UpdateDebugLines()
 		{
-			if(vesselBounds!=null)
+			int circleRes = 24;
+
+			debugLr.SetVertexCount(circleRes + 3);
+			for(int i = 0; i < circleRes; i++)
 			{
-				debugLr.SetVertexCount(11);
-				for(int i = 0; i < 8; i++)
-				{
-					debugLr.SetPosition(i, GetBoundPoint(i, 8, 1));
-				}
-				debugLr.SetPosition(8, GetBoundPoint(0, 8, 1));
-				debugLr.SetPosition(9, movingVessel.CoM + (currMoveVelocity*Time.fixedDeltaTime));
-				debugLr.SetPosition(10, movingVessel.CoM + (moveHeight * -up) + (currMoveVelocity*Time.fixedDeltaTime));
+				debugLr.SetPosition(i, GetBoundPoint(i, circleRes, 1));
 			}
+			debugLr.SetPosition(circleRes, GetBoundPoint(0, circleRes, 1));
+			debugLr.SetPosition(circleRes+1, movingVessel.CoM);
+			debugLr.SetPosition(circleRes+2, movingVessel.CoM + (moveHeight * -up));
+			//debugLr.SetPosition(circleRes+3, vBounds.bottomPoint);
 		}
+
 
 		Vector3 GetBoundPoint(int index, int totalPoints, float radiusFactor)
 		{
@@ -305,31 +417,207 @@ namespace VesselMover
 
 			float angle = index * angleIncrement;
 
-			//Vector3 up = (movingVessel.transform.position-FlightGlobals.currentMainBody.transform.position).normalized;
-			
-			Vector3 forward = Vector3.ProjectOnPlane((movingVessel.CoM+ (currMoveVelocity*Time.fixedDeltaTime))-FlightCamera.fetch.mainCamera.transform.position, up).normalized;
+			Vector3 forward = Vector3.ProjectOnPlane((movingVessel.CoM)-FlightCamera.fetch.mainCamera.transform.position, up).normalized;
 
-			float maxSize = Mathf.Max (Mathf.Max(vesselBounds.size.x, vesselBounds.size.y), vesselBounds.size.z);
+			float radius = vBounds.radius;
 
-			Vector3 offsetVector = (maxSize*radiusFactor*forward);
+			Vector3 offsetVector = (radius*radiusFactor*forward);
 			offsetVector = Quaternion.AngleAxis(angle, up) * offsetVector;
 
-			Vector3 point = movingVessel.CoM + offsetVector + (currMoveVelocity*Time.fixedDeltaTime);
+			Vector3 point = movingVessel.CoM + offsetVector;
 
 			return point;
 		}
 
 		bool CapsuleCast(out RaycastHit rayHit)
 		{
-			float radius = Mathf.Max (Mathf.Max(vesselBounds.size.x, vesselBounds.size.y), vesselBounds.size.z) + (currMoveSpeed*2);
+			//float radius = (Mathf.Max (Mathf.Max(vesselBounds.size.x, vesselBounds.size.y), vesselBounds.size.z)) + (currMoveSpeed*2);
+			float radius = vBounds.radius + Mathf.Clamp(currMoveSpeed, 0, 200);
 
 			return Physics.CapsuleCast(movingVessel.CoM + (250*up), movingVessel.CoM + (249*up), radius, -up, out rayHit, 2000, 1<<15);
 		}
 
-		public static float GetRadarAltitude(Vessel vessel)
+		float GetRadarAltitude(Vessel vessel)
 		{
-			float radarAlt = Mathf.Clamp((float)(vessel.mainBody.GetAltitude(vessel.findWorldCenterOfMass())-vessel.terrainAltitude), 0, (float)vessel.altitude);
+			float radarAlt = Mathf.Clamp((float)(vessel.mainBody.GetAltitude(vessel.CoM)-vessel.terrainAltitude), 0, (float)vessel.altitude);
 			return radarAlt;
+		}
+
+		float GetRaycastAltitude(VesselBounds vesselBounds) //TODO do the raycast from the bottom point of the ship, and include vessels in layer mask, so you can safely place on top of vessel
+		{
+			RaycastHit hit;
+			if(Physics.Raycast(vesselBounds.vessel.CoM, -up, out hit, (float)vesselBounds.vessel.altitude, (1<<15)))
+			{
+				return hit.distance;
+			}
+			else
+			{
+				return GetRadarAltitude(vesselBounds.vessel);
+			}
+		}
+
+		void ToggleMoveMode()
+		{
+			moveMode = (MoveModes)(int)Mathf.Repeat((float)moveMode+1, 3);
+			ShowModeMessage();
+
+			switch(moveMode)
+			{
+			case MoveModes.Normal:
+				debugLr.material.SetColor("_EmissiveColor", Color.green);
+				break;
+			case MoveModes.Slow:
+				debugLr.material.SetColor("_EmissiveColor", XKCDColors.Orange);
+				break;
+			case MoveModes.Ludicrous:
+				debugLr.material.SetColor("_EmissiveColor", XKCDColors.PurpleishBlue);
+				break;
+			}
+		}
+
+		ScreenMessage moveMessage;
+		void ShowModeMessage()
+		{
+			if(moveMessage!=null)
+			{
+				ScreenMessages.RemoveMessage(moveMessage);
+			}
+			moveMessage = ScreenMessages.PostScreenMessage("Mode : "+moveMode.ToString(), 3, ScreenMessageStyle.UPPER_CENTER);
+		}
+
+		Vector3 North()
+		{
+			Vector3 n = movingVessel.mainBody.GetWorldSurfacePosition(movingVessel.latitude+1, movingVessel.longitude, movingVessel.altitude)-movingVessel.GetWorldPos3D();
+			n = Vector3.ProjectOnPlane(n, up);
+			return n.normalized;
+		}
+
+		public struct VesselBounds
+		{
+			public Vessel vessel;
+			public float bottomLength;
+			public float radius;
+
+			private Vector3 localBottomPoint;
+			public Vector3 bottomPoint
+			{
+				get
+				{
+					return vessel.transform.TransformPoint(localBottomPoint);
+				}
+			}
+		
+
+			public VesselBounds(Vessel v)
+			{
+				vessel = v;
+				bottomLength = 0;
+				radius = 0;
+				localBottomPoint = Vector3.zero;
+				UpdateBounds();
+			}
+
+			public void UpdateBounds()
+			{
+				Vector3 up = (vessel.CoM-vessel.mainBody.transform.position).normalized;
+				Vector3 forward = Vector3.ProjectOnPlane(vessel.CoM-FlightCamera.fetch.mainCamera.transform.position, up).normalized; 
+				Vector3 right = Vector3.Cross(up, forward);
+
+
+				float maxSqrDist = 0;
+				Part furthestPart = null;
+
+				//bottom check
+				Vector3 downPoint = vessel.CoM - (2000 * up);
+				Vector3 closestVert = vessel.CoM;
+				float closestSqrDist = Mathf.Infinity;
+
+				//radius check
+				Vector3 furthestVert = vessel.CoM;
+				float furthestSqrDist = -1;
+
+				foreach(Part p in vessel.parts)
+				{
+					float sqrDist = Vector3.ProjectOnPlane((p.transform.position-vessel.CoM), up).sqrMagnitude;
+					if(sqrDist > maxSqrDist)
+					{
+						maxSqrDist = sqrDist;
+						furthestPart = p;
+					}
+
+					//if(Vector3.Dot(up, p.transform.position-vessel.CoM) < 0)
+					//{
+						
+						foreach(var mf in p.GetComponentsInChildren<MeshFilter>())
+						{
+							Mesh mesh = mf.mesh;
+							foreach(var vert in mesh.vertices)
+							{
+								//bottom check
+								Vector3 worldVertPoint = mf.transform.TransformPoint(vert);
+								float bSqrDist = (downPoint-worldVertPoint).sqrMagnitude;
+								if(bSqrDist < closestSqrDist)
+								{
+									closestSqrDist = bSqrDist;
+									closestVert = worldVertPoint;
+								}
+
+
+								//radius check
+								//float sqrDist = (vessel.CoM-worldVertPoint).sqrMagnitude;
+								float hSqrDist = Vector3.ProjectOnPlane(vessel.CoM-worldVertPoint, up).sqrMagnitude;
+								if(hSqrDist > furthestSqrDist)
+								{
+									furthestSqrDist = hSqrDist;
+									furthestVert = worldVertPoint;
+								}
+
+							}
+						}
+
+					//}
+				}
+
+				Vector3 radVector = Vector3.ProjectOnPlane(furthestVert-vessel.CoM, up);
+				radius = radVector.magnitude;
+
+				bottomLength = Vector3.Project(closestVert-vessel.CoM, up).magnitude;
+				localBottomPoint = vessel.transform.InverseTransformPoint(closestVert);
+				//Debug.Log ("Vessel bottom length: "+bottomLength);
+				/*
+				if(furthestPart!=null)
+				{
+					//Debug.Log ("Furthest Part: "+furthestPart.partInfo.title);
+
+					Vector3 furthestVert = vessel.CoM;
+					float furthestSqrDist = -1;
+
+					foreach(var mf in furthestPart.GetComponentsInChildren<MeshFilter>())
+					{
+						Mesh mesh = mf.mesh;
+						foreach(var vert in mesh.vertices)
+						{
+							Vector3 worldVertPoint = mf.transform.TransformPoint(vert);
+							float sqrDist = (vessel.CoM-worldVertPoint).sqrMagnitude;
+							if(sqrDist > furthestSqrDist)
+							{
+								furthestSqrDist = sqrDist;
+								furthestVert = worldVertPoint;
+							}
+						}
+					}
+
+					Vector3 radVector = Vector3.ProjectOnPlane(furthestVert-vessel.CoM, up);
+					radius = radVector.magnitude;
+					//Debug.Log ("Vert test found radius to be "+radius);
+				}
+				*/
+				//radius *= 1.75f;
+				radius += 15;
+
+			}
+
+
 		}
 
 	}
