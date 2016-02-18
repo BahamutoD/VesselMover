@@ -342,12 +342,13 @@ namespace VesselMover
 
 		void StartMove()
 		{
+			if(FlightGlobals.ActiveVessel.packed)
+			{
+				return;
+			}
+
 			if(!placingVessels.Contains(FlightGlobals.ActiveVessel) && FlightGlobals.ActiveVessel.LandedOrSplashed)
 			{
-
-
-
-
 				ShowModeMessage();
 
 				movingVessel = FlightGlobals.ActiveVessel;
