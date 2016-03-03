@@ -17,13 +17,16 @@ namespace VesselMover
 	[KSPAddon(KSPAddon.Startup.Flight, false)]
 	public class VesselMove : MonoBehaviour
 	{
+		public static VesselMove instance;
+
+
 		public enum MoveModes{Normal = 0, Slow = 1, Ludicrous = 2}
 		MoveModes moveMode = MoveModes.Normal;
 
 		bool moving = false;
 		List<Vessel> placingVessels = new List<Vessel>();
 		//float hOffset = 0;
-		float moveHeight = 0;
+		public float moveHeight = 0;
 
 
 		float[] hoverHeights = new float[]{35, 15, 3000};
@@ -62,7 +65,8 @@ namespace VesselMover
 			}
 		}
 
-		Vessel movingVessel;
+		public bool isMovingVessel = false;
+		public Vessel movingVessel;
 		Quaternion startRotation;
 		Quaternion currRotation;
 
@@ -83,6 +87,14 @@ namespace VesselMover
 		bool hasRotated = false;
 		float timeBoundsUpdated = 0;
 
+		void Awake()
+		{
+			if(instance)
+			{
+				Destroy(instance);
+			}
+			instance = this;
+		}
 
 		void Start()
 		{
@@ -103,7 +115,7 @@ namespace VesselMover
 				}
 				else
 				{
-					StartMove();
+					StartMove(FlightGlobals.ActiveVessel, true);
 				}
 			}
 
@@ -116,6 +128,13 @@ namespace VesselMover
 			}
 
 
+			/*
+			if(Input.GetKey(KeyCode.RightAlt) && Input.GetKeyDown(KeyCode.O))
+			{
+				Debug.Log("Starting spawn test");
+				VesselSpawn.instance.StartVesselSpawn();
+			}
+			*/
 		}
 
 		void FixedUpdate()
@@ -340,27 +359,39 @@ namespace VesselMover
 			return new Vector3d(lat,longi,alt);
 		}
 
-		void StartMove()
+		public void StartMove(Vessel v, bool forceReleaseClamps)
 		{
-			if(FlightGlobals.ActiveVessel.packed)
+			if(!v)
+			{
+				Debug.Log("Vessel mover tried to move a null vessel.");
+			}
+
+			if(v.packed)
 			{
 				return;
 			}
 
-			if(!placingVessels.Contains(FlightGlobals.ActiveVessel) && FlightGlobals.ActiveVessel.LandedOrSplashed)
+			if(!placingVessels.Contains(v) && v.LandedOrSplashed)
 			{
-				ShowModeMessage();
-
-				movingVessel = FlightGlobals.ActiveVessel;
-
 				//temp
-				foreach(var clamp in movingVessel.FindPartModulesImplementing<LaunchClamp>())
+				foreach(var clamp in v.FindPartModulesImplementing<LaunchClamp>())
 				{
-					clamp.Release();	
+					if(forceReleaseClamps)
+					{
+						clamp.Release();	
+					}
+					else
+					{
+						return;
+					}
 				}
 
+				ShowModeMessage();
 
-				up = (movingVessel.transform.position-FlightGlobals.currentMainBody.transform.position).normalized;
+				movingVessel = v;
+				isMovingVessel = true;
+
+				up = (v.transform.position-v.mainBody.transform.position).normalized;
 				startingUp = up;
 
 				vBounds = new VesselBounds(movingVessel);
@@ -377,10 +408,10 @@ namespace VesselMover
 
 
 
-		void EndMove()
+		public void EndMove()
 		{
 			StartCoroutine(EndMoveRoutine(vBounds));
-
+			isMovingVessel = false;
 			debugLr.enabled = false;
 		}
 
