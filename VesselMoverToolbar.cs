@@ -60,37 +60,46 @@ namespace VesselMover
 			float line = 0;
 			line += 1.25f;
 
-			if(!VesselMove.instance.isMovingVessel)
+			if(FlightGlobals.ActiveVessel && (FlightGlobals.ActiveVessel.LandedOrSplashed || VesselMove.instance.isMovingVessel))
 			{
-				if(GUI.Button(LineRect(ref line, 1.5f), "Move Vessel", HighLogic.Skin.button))
+				if(!VesselMove.instance.isMovingVessel)
 				{
-					VesselMove.instance.StartMove(FlightGlobals.ActiveVessel, true);
-				}
-				line += 0.2f;
+					if(GUI.Button(LineRect(ref line, 1.5f), "Move Vessel", HighLogic.Skin.button))
+					{
+						VesselMove.instance.StartMove(FlightGlobals.ActiveVessel, true);
+					}
+					line += 0.2f;
 
-				Rect spawnVesselRect = LineRect(ref line);
-				svRectScreenSpace = new Rect(spawnVesselRect);
-				svRectScreenSpace.x += toolbarRect.x;
-				svRectScreenSpace.y += toolbarRect.y;
-				if(GUI.Button(spawnVesselRect, "Spawn Vessel", HighLogic.Skin.button))
-				{
-					VesselSpawn.instance.StartVesselSpawn();
+					Rect spawnVesselRect = LineRect(ref line);
+					svRectScreenSpace = new Rect(spawnVesselRect);
+					svRectScreenSpace.x += toolbarRect.x;
+					svRectScreenSpace.y += toolbarRect.y;
+					if(GUI.Button(spawnVesselRect, "Spawn Vessel", HighLogic.Skin.button))
+					{
+						VesselSpawn.instance.StartVesselSpawn();
+					}
+					showMoveHelp = false;
 				}
-				showMoveHelp = false;
+				else
+				{
+					if(GUI.Button(LineRect(ref line, 2), "Place Vessel", HighLogic.Skin.button))
+					{
+						VesselMove.instance.EndMove();
+					}
+
+					line += 0.3f;
+
+					if(GUI.Button(LineRect(ref line), "Help", HighLogic.Skin.button))
+					{
+						showMoveHelp = !showMoveHelp;
+					}
+				}
 			}
 			else
 			{
-				if(GUI.Button(LineRect(ref line, 2), "Place Vessel", HighLogic.Skin.button))
-				{
-					VesselMove.instance.EndMove();
-				}
-
-				line += 0.3f;
-
-				if(GUI.Button(LineRect(ref line), "Help", HighLogic.Skin.button))
-				{
-					showMoveHelp = !showMoveHelp;
-				}
+				GUIStyle centerLabelStyle = new GUIStyle(HighLogic.Skin.label);
+				centerLabelStyle.alignment = TextAnchor.UpperCenter;
+				GUI.Label(LineRect(ref line), "You need to be landed to use this!", centerLabelStyle);
 			}
 
 			toolbarRect.height = (line * toolbarLineHeight) + (toolbarMargin * 2);

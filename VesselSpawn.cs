@@ -255,11 +255,10 @@ namespace VesselMover
 			newData.heading = heading;
 			newData.pitch = pitch;
 			newData.orbiting = false;
-			newData.flagURL = string.Empty;
+			newData.flagURL = HighLogic.CurrentGame.flagURL;
 			newData.owned = true;
 			newData.vesselType = VesselType.Ship;
 			newData.crew = new List<CrewData>();
-
 
 			SpawnVessel(newData);
 		}
@@ -610,7 +609,7 @@ namespace VesselMover
 			// Store the id for later use
 			vesselData.id = protoVessel.vesselRef.id;
 
-			protoVessel.stage = 0;
+			//protoVessel.vesselRef.currentStage = 0;
 
 			StartCoroutine(PlaceSpawnedVessel(protoVessel.vesselRef, !hasClamp));
 
@@ -639,6 +638,7 @@ namespace VesselMover
 			yield return null;
 			FlightGlobals.ForceSetActiveVessel(v);
 			v.Landed = true;
+			Staging.beginFlight();
 			if(moveVessel)
 			{
 				VesselMove.instance.StartMove(v, false);
