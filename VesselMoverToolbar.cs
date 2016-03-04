@@ -45,7 +45,7 @@ namespace VesselMover
 					{
 						Vector2 mousePos = MouseGUIPos();
 						Rect warningRect = new Rect(mousePos.x + 5, mousePos.y + 20, 200, 60);
-						GUI.Label(warningRect, "WARNING: Do not spawn vessels with launch clamps, or else explosions!", HighLogic.Skin.box);
+						GUI.Label(warningRect, "WARNING: Experimental. Launch clamps may be broken.", HighLogic.Skin.box);
 					}
 				}
 				else if(showMoveHelp)
@@ -116,12 +116,21 @@ namespace VesselMover
 		{
 			float line = 0;
 			line += 1.25f;
-			LineLabel("Movement: W A S D", ref line);
-			LineLabel("Roll: Q E", ref line);
-			LineLabel("Pitch: I K", ref line);
-			LineLabel("Yaw: J L", ref line);
-			line++;
-			LineLabel("Hotkey: Alt + P", ref line);
+			LineLabel("Movement: "+GameSettings.PITCH_DOWN.primary.ToString()+" "+
+				GameSettings.PITCH_UP.primary.ToString()+" "+
+				GameSettings.YAW_LEFT.primary.ToString()+" "+
+				GameSettings.YAW_RIGHT.primary.ToString(), ref line);
+			LineLabel("Roll: "+GameSettings.ROLL_LEFT.primary.ToString()+" "+
+				GameSettings.ROLL_RIGHT.primary.ToString(), ref line);
+			LineLabel("Pitch: "+GameSettings.TRANSLATE_DOWN.primary.ToString()+" "+
+				GameSettings.TRANSLATE_UP.primary.ToString(), ref line);
+			LineLabel("Yaw: "+GameSettings.TRANSLATE_LEFT.primary.ToString()+" "+
+				GameSettings.TRANSLATE_RIGHT.primary.ToString(), ref line);
+			LineLabel("Auto rotate rocket: " + GameSettings.TRANSLATE_BACK.primary.ToString(), ref line);
+			LineLabel("Auto rotate plane: " + GameSettings.TRANSLATE_FWD.primary.ToString(), ref line);
+			LineLabel("Change movement speed: Tab", ref line);
+			//line++;
+			//LineLabel("Hotkey: Alt + P", ref line);
 
 			helpHeight = (line * toolbarLineHeight) + (toolbarMargin * 2);
 		}
