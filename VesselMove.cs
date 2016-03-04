@@ -107,6 +107,7 @@ namespace VesselMover
 
 		void Update()
 		{
+			/*
 			if((Input.GetKey(KeyCode.LeftAlt) || (Input.GetKey(KeyCode.RightAlt))) && Input.GetKeyDown(KeyCode.P))
 			{
 				if(moving)
@@ -118,7 +119,7 @@ namespace VesselMover
 					StartMove(FlightGlobals.ActiveVessel, true);
 				}
 			}
-
+			*/
 			if(moving)
 			{
 				if(Input.GetKeyDown(KeyCode.Tab))
