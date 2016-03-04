@@ -151,17 +151,22 @@ namespace VesselMover
 			style.alignment = TextAnchor.UpperCenter;
 
 			Rect labelRect = new Rect(0, (Screen.height * 0.25f) + (Mathf.Sin(2*Time.time)*5), Screen.width, 200);
-			Rect shadowRect = new Rect(labelRect);
-			shadowRect.x += 2;
-			shadowRect.y += 2;
 
+			//shadow
 			GUIStyle shadowStyle = new GUIStyle(style);
-			shadowStyle.normal.textColor = new Color(0, 0, 0, 0.45f);
+			shadowStyle.normal.textColor = new Color(0, 0, 0, 0.15f);
+			Vector3 shadowOffset = 2*Vector3.up;
+			for(int i = 0; i < 16; i++)
+			{
+				Rect shadowRect = new Rect(labelRect);
+				shadowRect.x += shadowOffset.x;
+				shadowRect.y += shadowOffset.y;
+				GUI.Label(shadowRect, message, shadowStyle);
+				shadowOffset = Quaternion.AngleAxis(22.5f, Vector3.forward) * shadowOffset;
+			}
 
-			GUI.Label(shadowRect, message, shadowStyle);
-			shadowRect.x -= 3;
-			shadowRect.y -= 3;
-			GUI.Label(shadowRect, message, shadowStyle);
+
+
 			GUI.Label(labelRect, message, style);
 		}
 
@@ -293,6 +298,8 @@ namespace VesselMover
 			ShipConstruct shipConstruct = null;
 			bool hasClamp = false;
 			float lcHeight = 0;
+			ConfigNode craftNode;
+			Quaternion craftRotation = Quaternion.identity;
 			if (!string.IsNullOrEmpty(vesselData.craftURL))
 			{
 				// Save the current ShipConstruction ship, otherwise the player will see the spawned ship next time they enter the VAB!
@@ -305,6 +312,10 @@ namespace VesselMover
 						"' (usually this means the file could not be found).");
 					return;//continue;
 				}
+
+				craftNode = ConfigNode.Load(vesselData.craftURL);
+				lcHeight = ConfigNode.ParseVector3(craftNode.GetNode("PART").GetValue("pos")).y;
+				craftRotation = ConfigNode.ParseQuaternion(craftNode.GetNode("PART").GetValue("rot"));
 
 				// Restore ShipConstruction ship
 				ShipConstruction.ShipConfig = currentShip;
@@ -421,6 +432,8 @@ namespace VesselMover
 					partNodesL.Add(node);
 				}
 				partNodes = partNodesL.ToArray();
+
+
 
 
 				// Estimate an object class, numbers are based on the in game description of the
@@ -558,8 +571,10 @@ namespace VesselMover
 				{
 					rotation = rotation * Quaternion.FromToRotation(Vector3.up, Vector3.forward);
 					rotation = Quaternion.FromToRotation(Vector3.up, -Vector3.up) * rotation;
-					//rotation = rotation * Quaternion.FromToRotation(Vector3.forward, -Vector3.forward);
-					//heading += 180.0f;
+
+					//rotation = craftRotation;
+
+
 					vesselData.heading = 0;
 					vesselData.pitch = 0;
 				}
@@ -580,7 +595,7 @@ namespace VesselMover
 						if(lc)
 						{
 							hasClamp = true;
-							lcHeight = Mathf.Min(shipConstruct.shipSize.y-lc.height);
+							break;
 						}
 					}
 
@@ -590,7 +605,7 @@ namespace VesselMover
 					}
 					else
 					{
-						hgt += lcHeight + 0.2f;
+						hgt += lcHeight;
 					}
 					protoVesselNode.SetValue("hgt", hgt.ToString(), true);
 				}
@@ -605,6 +620,8 @@ namespace VesselMover
 
 			// Add vessel to the game
 			ProtoVessel protoVessel = HighLogic.CurrentGame.AddVessel(protoVesselNode);
+			//protoVessel.vesselRef.transform.rotation = protoVessel.rotation;
+
 
 			// Store the id for later use
 			vesselData.id = protoVessel.vesselRef.id;
@@ -631,10 +648,13 @@ namespace VesselMover
 		IEnumerator PlaceSpawnedVessel(Vessel v, bool moveVessel)
 		{
 			loadingCraft = true;
+
 			while(v.packed)
 			{
 				yield return null;
 			}
+			v.SetWorldVelocity(Vector3d.zero);
+
 			yield return null;
 			FlightGlobals.ForceSetActiveVessel(v);
 			v.Landed = true;
