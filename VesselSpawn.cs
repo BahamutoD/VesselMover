@@ -224,26 +224,47 @@ namespace VesselMover
 
 		bool GetMouseWorldPoint(out Vector3 worldPos)
 		{
-			Vector3 targetPosition;
+			worldPos = Vector3.zero;
 			float maxTargetingRange = 5000;
 			//MouseControl
 			Vector3 mouseAim = new Vector3(Input.mousePosition.x/Screen.width, Input.mousePosition.y/Screen.height, 0);
 			Ray ray = FlightCamera.fetch.mainCamera.ViewportPointToRay(mouseAim);
+			bool raycastFailed = false;
 			RaycastHit hit;
 			if(Physics.Raycast(ray, out hit, maxTargetingRange, 557057))
 			{
-				targetPosition = hit.point;
+				if(FlightGlobals.getAltitudeAtPos(hit.point) < 0)
+				{
+					raycastFailed = true;
+				}
+				else
+				{
+					worldPos =  hit.point;
+				}
 
-				worldPos = targetPosition;
-				return true;
 			}
 			else
 			{
-				//targetPosition = (ray.direction * (maxTargetingRange+(FlightCamera.fetch.Distance*0.75f))) + FlightCamera.fetch.mainCamera.transform.position;	
-				worldPos = Vector3.zero;
-				return false;
+				raycastFailed = true;
 			}
 
+			if(raycastFailed)
+			{
+				double dist;
+				if(VMUtils.SphereRayIntersect(ray, FlightGlobals.currentMainBody.transform.position, FlightGlobals.currentMainBody.Radius, out dist))
+				{
+					worldPos = ray.GetPoint((float)dist);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+			else
+			{
+				return true;
+			}
 
 		}
 
@@ -510,7 +531,7 @@ namespace VesselMover
 				{
 					terrainHeight = vesselData.body.pqsController.GetSurfaceHeight(norm) - vesselData.body.pqsController.radius;
 				}
-				bool splashed = landed && terrainHeight < 0.001;
+				bool splashed = false;// = landed && terrainHeight < 0.001;
 
 				// Create the config node representation of the ProtoVessel
 				// Note - flying is experimental, and so far doesn't work

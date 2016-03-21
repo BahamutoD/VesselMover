@@ -2,8 +2,10 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="VesselSpawn.cs">
     <Files>
-      <File FileName="VesselMove.cs" Line="121" Column="43" />
-      <File FileName="VesselSpawn.cs" Line="154" Column="63" />
+      <File FileName="VesselMove.cs" Line="120" Column="6" />
+      <File FileName="VesselSpawn.cs" Line="536" Column="58" />
+      <File FileName="VesselMoverToolbar.cs" Line="14" Column="20" />
+      <File FileName="VMUtils.cs" Line="29" Column="4" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

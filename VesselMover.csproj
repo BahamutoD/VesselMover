@@ -35,6 +35,7 @@
     <Compile Include="VesselMove.cs" />
     <Compile Include="VesselSpawn.cs" />
     <Compile Include="VesselMoverToolbar.cs" />
+    <Compile Include="VMUtils.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
