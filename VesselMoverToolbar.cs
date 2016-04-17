@@ -4,7 +4,9 @@ using UnityEngine;
 
 namespace VesselMover
 {
-	[KSPAddon(KSPAddon.Startup.Flight, false)]
+    using KSP.UI.Screens;
+
+    [KSPAddon(KSPAddon.Startup.Flight, false)]
 	public class VesselMoverToolbar : MonoBehaviour
 	{
 		public static bool hasAddedButton = false;

@@ -315,8 +315,7 @@ namespace VesselMover
 			}
 
 			ConfigNode[] partNodes;
-			UntrackedObjectClass sizeClass;
-			ShipConstruct shipConstruct = null;
+		    ShipConstruct shipConstruct = null;
 			bool hasClamp = false;
 			float lcHeight = 0;
 			ConfigNode craftNode;
@@ -462,23 +461,18 @@ namespace VesselMover
 				float size = shipConstruct.shipSize.magnitude / 2.0f;
 				if (size < 4.0f)
 				{
-					sizeClass = UntrackedObjectClass.A;
 				}
 				else if (size < 7.0f)
 				{
-					sizeClass = UntrackedObjectClass.B;
 				}
 				else if (size < 12.0f)
 				{
-					sizeClass = UntrackedObjectClass.C;
 				}
 				else if (size < 18.0f)
 				{
-					sizeClass = UntrackedObjectClass.D;
 				}
 				else
 				{
-					sizeClass = UntrackedObjectClass.E;
 				}
 			}
 			else
@@ -504,9 +498,8 @@ namespace VesselMover
 				partNodes[0] = ProtoVessel.CreatePartNode(vesselData.craftPart.name, flightId, crewArray);
 
 				// Default the size class
-				sizeClass = UntrackedObjectClass.A;
 
-				// Set the name
+			    // Set the name
 				if (string.IsNullOrEmpty(vesselData.name))
 				{
 					vesselData.name = vesselData.craftPart.name;
