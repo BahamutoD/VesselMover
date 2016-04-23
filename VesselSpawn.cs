@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+
+
 namespace VesselMover
 {
 	[KSPAddon(KSPAddon.Startup.Flight, false)]
@@ -301,7 +303,7 @@ namespace VesselMover
 				landed = true;
 				if (vesselData.altitude == null)
 				{
-					vesselData.altitude = LocationUtil.TerrainHeight(vesselData.latitude, vesselData.longitude, vesselData.body);
+					vesselData.altitude = 0;//LocationUtil.TerrainHeight(vesselData.latitude, vesselData.longitude, vesselData.body);
 				}
 
 				Vector3d pos = vesselData.body.GetWorldSurfacePosition(vesselData.latitude, vesselData.longitude, vesselData.altitude.Value);
@@ -669,7 +671,7 @@ namespace VesselMover
 		IEnumerator PlaceSpawnedVessel(Vessel v, bool moveVessel)
 		{
 			loadingCraft = true;
-
+			v.isPersistent = true;
 			while(v.packed)
 			{
 				yield return null;
@@ -678,8 +680,14 @@ namespace VesselMover
 
 			yield return null;
 			FlightGlobals.ForceSetActiveVessel(v);
+			yield return null;
 			v.Landed = true;
+			v.situation = Vessel.Situations.PRELAUNCH;
+			v.GoOffRails();
+
 			Staging.beginFlight();
+
+		 
 			if(moveVessel)
 			{
 				VesselMove.instance.StartMove(v, false);
