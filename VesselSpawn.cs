@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using KSP.UI.Screens;
 
 
 namespace VesselMover
@@ -378,6 +379,7 @@ namespace VesselMover
 
 						crewMember.gender = UnityEngine.Random.Range(0,100) > 50 ? ProtoCrewMember.Gender.Female : ProtoCrewMember.Gender.Male;
 
+						
 						/*
 						if (cd.name != null)
 						{
@@ -685,8 +687,8 @@ namespace VesselMover
 			v.situation = Vessel.Situations.PRELAUNCH;
 			v.GoOffRails();
 
-			Staging.beginFlight();
-
+			//Staging.beginFlight();
+			StageManager.BeginFlight();
 		 
 			if(moveVessel)
 			{
